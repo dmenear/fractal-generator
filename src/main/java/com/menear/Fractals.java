@@ -1,27 +1,33 @@
 package com.menear;
 
 import javafx.application.Application;
-import javafx.geometry.Orientation;
 import javafx.scene.Scene;
-import javafx.scene.control.Separator;
+import javafx.scene.image.Image;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class Fractals extends Application {
 
+    private static ControlPanel controlPanel;
+    private static FractalCanvas fractalCanvas;
+    private static MainMenu mainMenu;
+    private static Stage mainStage;
+
     @Override
     public void start(Stage stage) {
-        stage.setTitle("Fractal Generator");
+        mainStage = stage;
 
-        FractalCanvas fractalCanvas = new FractalCanvas(1200.0, 800.0);
-        ControlPanel controlPanel = new ControlPanel(stage);
+        mainMenu = new MainMenu();
+        fractalCanvas = new FractalCanvas();
+        controlPanel = new ControlPanel();
 
-        fractalCanvas.init(controlPanel);
-        controlPanel.init(fractalCanvas);
+        fractalCanvas.init();
 
-        VBox vbMain = new VBox(fractalCanvas, new Separator(Orientation.HORIZONTAL), controlPanel);
+        VBox vbMain = new VBox(mainMenu, fractalCanvas, controlPanel);
         Scene scene = new Scene(vbMain);
 
+        stage.getIcons().add(new Image(getClass().getClassLoader().getResourceAsStream("icon.jpg")));
+        stage.setTitle("Fractal Generator");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.show();
@@ -29,6 +35,22 @@ public class Fractals extends Application {
 
     public static void main( String[] args ) {
         launch(args);
+    }
+
+    public static ControlPanel getControlPanel() {
+        return controlPanel;
+    }
+
+    public static FractalCanvas getFractalCanvas() {
+        return fractalCanvas;
+    }
+
+    public static MainMenu getMainMenu() {
+        return mainMenu;
+    }
+
+    public static Stage getMainStage() {
+        return mainStage;
     }
 
 }

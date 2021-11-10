@@ -21,9 +21,6 @@ class ControlPanel extends VBox {
 
     private static final Logger LOG = LoggerFactory.getLogger(ControlPanel.class);
 
-    private Stage mainStage;
-    private FractalCanvas fractalCanvas;
-
     private Button btnAction = new Button();
     private Button btnAddShape = new Button("Add Shape");
 
@@ -47,20 +44,18 @@ class ControlPanel extends VBox {
             disableAddShapeButton();
             disableWeightFields();
             disableIterationControls();
-            fractalCanvas.beginStartPointSelection();
+            Fractals.getFractalCanvas().beginStartPointSelection();
         }
     };
 
-    private EventHandler<ActionEvent> handleStop = action -> fractalCanvas.cancelDrawPoints();
+    private EventHandler<ActionEvent> handleStop = action -> Fractals.getFractalCanvas().cancelDrawPoints();
 
     private EventHandler<ActionEvent> handleReset = action -> {
-        fractalCanvas.resetCanvas();
+        Fractals.getFractalCanvas().resetCanvas();
         btnAction.setOnAction(handleStart);
     };
 
-    ControlPanel(Stage mainStage) {
-        this.mainStage = mainStage;
-
+    ControlPanel() {
         hbIterations.setSpacing(3.0);
         hbIterations.setAlignment(Pos.CENTER);
         txtIterations.setPrefColumnCount(4);
@@ -90,12 +85,7 @@ class ControlPanel extends VBox {
         getChildren().addAll(hbMainControls, fpShapeWeights);
 
         actionButtonStart();
-        btnAddShape.setOnAction(event -> fractalCanvas.addShape());
-        disableAddShapeButton();
-    }
-
-    void init(FractalCanvas fractalCanvas) {
-        this.fractalCanvas = fractalCanvas;
+        btnAddShape.setOnAction(event -> Fractals.getFractalCanvas().addShape());
     }
 
     int getIterations() {
@@ -108,7 +98,7 @@ class ControlPanel extends VBox {
 
     void renderShapeWeightFields() {
         fpShapeWeights.getChildren().clear();
-        Deque<SelectedShape> selectedShapes = fractalCanvas.getSelectedShapes();
+        Deque<SelectedShape> selectedShapes = Fractals.getFractalCanvas().getSelectedShapes();
         if(selectedShapes.size() > 1) {
             Iterator<SelectedShape> iter = selectedShapes.descendingIterator();
             while(iter.hasNext()) {
@@ -119,7 +109,7 @@ class ControlPanel extends VBox {
                 fpShapeWeights.getChildren().add(hbSelectedWeight);
             }
         }
-        mainStage.sizeToScene();
+        Fractals.getMainStage().sizeToScene();
     }
 
     void enableIterationControls() {
@@ -133,7 +123,7 @@ class ControlPanel extends VBox {
     }
 
     void disableWeightFields() {
-        for(SelectedShape selectedShape : fractalCanvas.getSelectedShapes()) {
+        for(SelectedShape selectedShape : Fractals.getFractalCanvas().getSelectedShapes()) {
             selectedShape.getTxtWeight().setDisable(true);
         }
     }
@@ -161,6 +151,7 @@ class ControlPanel extends VBox {
 
     void actionButtonStart() {
         disableActionButton();
+        disableAddShapeButton();
         enableIterationControls();
         btnAction.setText("Start");
         btnAction.setOnAction(handleStart);
@@ -184,7 +175,7 @@ class ControlPanel extends VBox {
             return false;
         }
 
-        Deque<SelectedShape> selectedShapes = fractalCanvas.getSelectedShapes();
+        Deque<SelectedShape> selectedShapes = Fractals.getFractalCanvas().getSelectedShapes();
         if(selectedShapes.size() > 1) {
             for (SelectedShape selectedShape : selectedShapes) {
                 String numberString = selectedShape.getTxtWeight().getText();
@@ -203,9 +194,9 @@ class ControlPanel extends VBox {
 
     private void showInvalidNumberMessage(String value) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("Error");
-        alert.setHeaderText("Error! Invalid number!");
-        alert.setContentText(String.format("Value \"%s\" is not a valid number!", value));
+        alert.setTitle("Invalid Number Error");
+        alert.setHeaderText(null);
+        alert.setContentText(String.format("Error! Value \"%s\" is not a valid number!", value));
         alert.showAndWait();
     }
 

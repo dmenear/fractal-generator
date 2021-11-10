@@ -22,15 +22,13 @@ class StartButtonRunnable implements Runnable {
     private GraphicsContext context;
     private double[] currentLocation;
     private SimpleIntegerProperty counterVal;
-    private ControlPanel controlPanel;
 
     public StartButtonRunnable(GraphicsContext context, Deque<SelectedShape> selectedShapes, double[] startingLocation,
-                               SimpleIntegerProperty counterVal, ControlPanel controlPanel) {
+                               SimpleIntegerProperty counterVal) {
         this.context = context;
         this.selectedShapes = selectedShapes;
         currentLocation = new double[] { startingLocation[0], startingLocation[1] };
         this.counterVal = counterVal;
-        this.controlPanel = controlPanel;
     }
 
     @Override
@@ -57,7 +55,7 @@ class StartButtonRunnable implements Runnable {
 
         try {
             int i = 2;
-            while(i <= controlPanel.getIterations() && !Thread.interrupted()) {
+            while(i <= Fractals.getControlPanel().getIterations() && !Thread.interrupted()) {
                 List<double[]> coordinatesList = null;
 
                 double roll = secRandom.nextDouble() * weightSum;
@@ -68,7 +66,7 @@ class StartButtonRunnable implements Runnable {
                     }
                 }
 
-                Thread.sleep(controlPanel.getDelay());
+                Thread.sleep(Fractals.getControlPanel().getDelay());
                 double[] coord = coordinatesList.get(secRandom.nextInt(coordinatesList.size()));
                 currentLocation = new double[]{
                         (currentLocation[0] + coord[0]) / 2.0, (currentLocation[1] + coord[1]) / 2.0
@@ -80,7 +78,7 @@ class StartButtonRunnable implements Runnable {
             return;
         } finally {
             LOG.info("Finished drawing points.");
-            Platform.runLater(() -> controlPanel.actionButtonReset());
+            Platform.runLater(() -> Fractals.getControlPanel().actionButtonReset());
         }
     }
 
