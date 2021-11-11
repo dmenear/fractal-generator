@@ -10,7 +10,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,10 +39,11 @@ class ControlPanel extends VBox {
     private EventHandler<ActionEvent> handleStart = action -> {
         if(parseNumericFields()) {
             btnAction.setOnAction(null);
-            disableActionButton();
-            disableAddShapeButton();
-            disableWeightFields();
-            disableIterationControls();
+            setActionButtonDisabled(true);
+            setAddShapeButtonDisabled(true);
+            setWeightFieldsDisabled(true);
+            setIterationControlsDisabled(true);
+            Fractals.getMainMenu().disableCanvasSizeSelection();
             Fractals.getFractalCanvas().beginStartPointSelection();
         }
     };
@@ -52,7 +52,9 @@ class ControlPanel extends VBox {
 
     private EventHandler<ActionEvent> handleReset = action -> {
         Fractals.getFractalCanvas().resetCanvas();
+        setWeightFieldsDisabled(false);
         btnAction.setOnAction(handleStart);
+        Fractals.getMainMenu().enableCanvasSizeSelection();
     };
 
     ControlPanel() {
@@ -112,32 +114,26 @@ class ControlPanel extends VBox {
         Fractals.getMainStage().sizeToScene();
     }
 
-    void enableIterationControls() {
-        txtIterations.setDisable(false);
-        sldrDelay.setDisable(false);
+    void setIterationControlsDisabled(boolean val) {
+        txtIterations.setDisable(val);
     }
 
-    void disableIterationControls() {
-        txtIterations.setDisable(true);
-        sldrDelay.setDisable(true);
-    }
-
-    void disableWeightFields() {
+    void setWeightFieldsDisabled(boolean val) {
         for(SelectedShape selectedShape : Fractals.getFractalCanvas().getSelectedShapes()) {
-            selectedShape.getTxtWeight().setDisable(true);
+            selectedShape.getTxtWeight().setDisable(val);
         }
     }
 
-    void enableActionButton() {
-        btnAction.setDisable(false);
+    void setActionButtonDisabled(boolean val) {
+        btnAction.setDisable(val);
     }
 
-    void disableActionButton() {
-        btnAction.setDisable(true);
+    void setAddShapeButtonDisabled(boolean val) {
+        btnAddShape.setDisable(val);
     }
 
     void actionButtonStop() {
-        enableActionButton();
+        setActionButtonDisabled(false);
         btnAction.setText("Stop");
         btnAction.setOnAction(handleStop);
         LOG.debug("Stop button enabled.");
@@ -150,20 +146,12 @@ class ControlPanel extends VBox {
     }
 
     void actionButtonStart() {
-        disableActionButton();
-        disableAddShapeButton();
-        enableIterationControls();
+        setActionButtonDisabled(true);
+        setAddShapeButtonDisabled(true);
+        setIterationControlsDisabled(false);
         btnAction.setText("Start");
         btnAction.setOnAction(handleStart);
         LOG.debug("Start button enabled.");
-    }
-
-    void enableAddShapeButton() {
-        btnAddShape.setDisable(false);
-    }
-
-    void disableAddShapeButton() {
-        btnAddShape.setDisable(true);
     }
 
     private boolean parseNumericFields() {

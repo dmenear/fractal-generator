@@ -4,11 +4,10 @@ import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.image.WritableImage;
+import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
-import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +32,7 @@ class MainMenu extends MenuBar {
     private FileChooser fcSaveCanvas = new FileChooser();
 
     private Menu viewMenu = new Menu("View");
+    private CheckMenuItem miDrawShapeLines = new CheckMenuItem("Draw Shape Lines");
     private MenuItem miSmallCanvas = new MenuItem("Small Canvas");
     private MenuItem miMediumCanvas = new MenuItem("Medium Canvas");
     private MenuItem miLargeCanvas = new MenuItem("Large Canvas");
@@ -52,9 +52,9 @@ class MainMenu extends MenuBar {
         if(imageFile != null) {
             LOG.info("Selected the following location to save image file: " + imageFile.getAbsolutePath());
 
-            Canvas canvas = Fractals.getFractalCanvas().getCanvas();
-            WritableImage canvasSnapshot = new WritableImage((int) canvas.getWidth(), (int) canvas.getHeight());
-            canvas.snapshot(null, canvasSnapshot);
+            StackPane fractalCanvas = Fractals.getFractalCanvas();
+            WritableImage canvasSnapshot = new WritableImage((int) fractalCanvas.getWidth(), (int) fractalCanvas.getHeight());
+            fractalCanvas.snapshot(null, canvasSnapshot);
             RenderedImage canvasImg = SwingFXUtils.fromFXImage(canvasSnapshot, null);
             try {
                 ImageIO.write(canvasImg, "png", imageFile);
@@ -74,35 +74,21 @@ class MainMenu extends MenuBar {
     };
 
     private EventHandler<ActionEvent> handleCanvasSizeChange = event -> {
-        Alert confirmSizeChange = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmSizeChange.setTitle("Confirm Canvas Size Change");
-        confirmSizeChange.setHeaderText(null);
-        confirmSizeChange.setContentText("WARNING! Changing canvas size will remove all current selections! "
-                + "Do you wish to continue?");
-        confirmSizeChange.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
+        miSelectedCanvasSize = (MenuItem) event.getTarget();
+        enableCanvasSizeSelection();
 
-        ((Button) confirmSizeChange.getDialogPane().lookupButton(ButtonType.YES)).setDefaultButton(false);
-        ((Button) confirmSizeChange.getDialogPane().lookupButton(ButtonType.NO)).setDefaultButton(true);
-
-        Optional<ButtonType> response = confirmSizeChange.showAndWait();
-        if(response.isPresent() && response.get() == ButtonType.YES) {
-            LOG.info("User confirmed canvas size change");
-            miSelectedCanvasSize = (MenuItem) event.getTarget();
-            enableCanvasSizeSelection();
-
-            if(miSelectedCanvasSize == miSmallCanvas) {
-                Fractals.getFractalCanvas().resizeCanvasSmall();
-                LOG.info("Canvas size set to small");
-            } else if(miSelectedCanvasSize == miMediumCanvas) {
-                Fractals.getFractalCanvas().resizeCanvasMedium();
-                LOG.info("Canvas size set to medium");
-            } else if(miSelectedCanvasSize == miLargeCanvas) {
-                Fractals.getFractalCanvas().resizeCanvasLarge();
-                LOG.info("Canvas size set to large");
-            }
-
-            Fractals.getMainStage().sizeToScene();
+        if(miSelectedCanvasSize == miSmallCanvas) {
+            Fractals.getFractalCanvas().resizeCanvasSmall();
+            LOG.info("Canvas size set to small");
+        } else if(miSelectedCanvasSize == miMediumCanvas) {
+            Fractals.getFractalCanvas().resizeCanvasMedium();
+            LOG.info("Canvas size set to medium");
+        } else if(miSelectedCanvasSize == miLargeCanvas) {
+            Fractals.getFractalCanvas().resizeCanvasLarge();
+            LOG.info("Canvas size set to large");
         }
+
+        Fractals.getMainStage().sizeToScene();
     };
 
     MainMenu() {
@@ -119,11 +105,18 @@ class MainMenu extends MenuBar {
             confirmExit();
         });
 
+        miDrawShapeLines.setOnAction(event ->
+                Fractals.getFractalCanvas().setDrawShapeLines(miDrawShapeLines.isSelected()));
+        miDrawShapeLines.setSelected(true);
+
         configureFileChoosers();
 
-        miMediumCanvas.setDisable(true);
+        miSelectedCanvasSize = miMediumCanvas;
+        enableCanvasSizeSelection();
+
         fileMenu.getItems().addAll(miImportRuleSet, miExportRuleSet, miSaveCanvas, new SeparatorMenuItem(), miExit);
-        viewMenu.getItems().addAll(miSmallCanvas, miMediumCanvas, miLargeCanvas);
+        viewMenu.getItems().addAll(miDrawShapeLines, new SeparatorMenuItem(), miSmallCanvas,
+                miMediumCanvas, miLargeCanvas);
 
         getMenus().addAll(fileMenu, viewMenu);
     }

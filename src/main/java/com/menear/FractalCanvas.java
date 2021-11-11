@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.StringJoiner;
 
 class FractalCanvas extends StackPane {
@@ -41,10 +42,14 @@ class FractalCanvas extends StackPane {
             Color.YELLOW
     };
 
-    private Canvas canvas;
+    private static double SELECTED_POINT_SIZE = 8.0;
+    private static double SELECTED_POINT_MIN_DISTANCE = 16.0;
+
+    private Canvas selectionCanvas;
+    private Canvas dotCanvas;
     private Thread drawPoints;
 
-    private int shapeCount = 1;
+    private boolean drawShapeLines = true;
 
     private SimpleIntegerProperty counterVal = new SimpleIntegerProperty(0);
 
@@ -53,19 +58,10 @@ class FractalCanvas extends StackPane {
     private Deque<double[]> coordinates;
 
     private EventHandler<MouseEvent> handleShapeSelection = event -> {
-        GraphicsContext context = canvas.getGraphicsContext2D();
-        context.setFill(SHAPE_COLORS[(shapeCount - 1) % SHAPE_COLORS.length]);
-        double minDistance = 16.0;
-        double size = 8.0;
-
         if(event.getButton() == MouseButton.SECONDARY
                 || (event.getButton() == MouseButton.PRIMARY && event.isControlDown())) {
             if(!coordinates.isEmpty()) {
-                double[] removedCoords = coordinates.pop();
-                double removedX = removedCoords[0];
-                double removedY = removedCoords[1];
-
-                clearPoint(removedX, removedY, size);
+                coordinates.pop();
             } else {
                 if(selectedShapes.size() > 1) {
                     removeShape();
@@ -76,14 +72,14 @@ class FractalCanvas extends StackPane {
         } else if(event.getButton() == MouseButton.PRIMARY) {
             double clickX = event.getX();
             double clickY = event.getY();
-            if(isValidLocation(coordinates, clickX, clickY, minDistance)) {
-                context.fillOval(clickX - (size / 2), clickY - (size / 2), size, size);
+            if(isValidLocation(coordinates, clickX, clickY, SELECTED_POINT_MIN_DISTANCE)) {
                 coordinates.push(new double[]{clickX, clickY});
             } else {
                 LOG.info("Unable to select coordinate - too close to neighboring node!");
             }
         }
 
+        redrawSelectedShapes();
         updateShapeSelectionControls();
 
         final StringJoiner sjOut = new StringJoiner(", ", "[", "]");
@@ -93,17 +89,18 @@ class FractalCanvas extends StackPane {
 
     private EventHandler<MouseEvent> handleStartLocation = event -> {
         if(event.getButton() == MouseButton.PRIMARY) {
-            drawPoints = new Thread(new StartButtonRunnable(canvas.getGraphicsContext2D(), selectedShapes,
+            drawPoints = new Thread(new StartButtonRunnable(dotCanvas.getGraphicsContext2D(), selectedShapes,
                     new double[] { event.getX(), event.getY()}, counterVal), "draw-points");
             drawPoints.start();
-            canvas.setOnMouseClicked(null);
-            canvas.setCursor(Cursor.DEFAULT);
+            this.setOnMouseClicked(null);
+            this.setCursor(Cursor.DEFAULT);
             Fractals.getControlPanel().actionButtonStop();
         }
     };
 
     FractalCanvas() {
-        canvas = new Canvas();
+        selectionCanvas = new Canvas();
+        dotCanvas = new Canvas();
 
         Font counterFont = Font.font(20.0);
 
@@ -118,8 +115,12 @@ class FractalCanvas extends StackPane {
         HBox hbCounter = new HBox(lblCounterTitle, lblCounter);
         Group grpCounter = new Group(hbCounter);
 
-        getChildren().addAll(canvas, grpCounter);
+        getChildren().addAll(dotCanvas, selectionCanvas, grpCounter);
         setAlignment(grpCounter, Pos.TOP_CENTER);
+
+        currentShape = new SelectedShape(1, SHAPE_COLORS[0]);
+        selectedShapes.push(currentShape);
+        coordinates = currentShape.getCoordinates();
     }
 
     void init() {
@@ -130,12 +131,9 @@ class FractalCanvas extends StackPane {
         return selectedShapes;
     }
 
-    Canvas getCanvas() {
-        return canvas;
-    }
-
     void addShape() {
-        currentShape = new SelectedShape(++shapeCount);
+        currentShape = new SelectedShape(selectedShapes.size() + 1,
+                SHAPE_COLORS[(selectedShapes.size()) % SHAPE_COLORS.length]);
         selectedShapes.push(currentShape);
         coordinates = currentShape.getCoordinates();
         updateShapeSelectionControls();
@@ -147,17 +145,16 @@ class FractalCanvas extends StackPane {
         selectedShapes.pop();
         currentShape = selectedShapes.peek();
         coordinates = currentShape.getCoordinates();
-        shapeCount--;
-        Fractals.getControlPanel().enableAddShapeButton();
-        Fractals.getControlPanel().enableActionButton();
+        Fractals.getControlPanel().setAddShapeButtonDisabled(false);
+        Fractals.getControlPanel().setActionButtonDisabled(false);
         Fractals.getControlPanel().renderShapeWeightFields();
         LOG.info("Shape removed");
     }
 
     void beginStartPointSelection() {
         LOG.info(selectedShapes.size() + " shape(s) selected.");
-        canvas.setOnMouseClicked(handleStartLocation);
-        canvas.setCursor(Cursor.HAND);
+        this.setOnMouseClicked(handleStartLocation);
+        this.setCursor(Cursor.CROSSHAIR);
     }
 
     void cancelDrawPoints() {
@@ -166,20 +163,18 @@ class FractalCanvas extends StackPane {
     }
 
     void resetCanvas() {
-        canvas.setOnMouseClicked(handleShapeSelection);
-        canvas.setCursor(Cursor.HAND);
+        this.setOnMouseClicked(handleShapeSelection);
+        this.setCursor(Cursor.HAND);
 
         counterVal.set(0);
 
-        selectedShapes.clear();
-        currentShape = new SelectedShape(shapeCount = 1);
-        selectedShapes.push(currentShape);
-        coordinates = currentShape.getCoordinates();
-
-        clearCanvas();
+        clearDotCanvas();
+        redrawSelectedShapes();
 
         Fractals.getControlPanel().actionButtonStart();
         Fractals.getControlPanel().renderShapeWeightFields();
+
+        updateShapeSelectionControls();
 
         LOG.debug("Canvas reset");
     }
@@ -197,35 +192,77 @@ class FractalCanvas extends StackPane {
     }
 
     private void resizeCanvas(int[] dimensions) {
-        canvas.setWidth(dimensions[0]);
-        canvas.setHeight(dimensions[1]);
+        dotCanvas.setWidth(dimensions[0]);
+        dotCanvas.setHeight(dimensions[1]);
+        selectionCanvas.setWidth(dimensions[0]);
+        selectionCanvas.setHeight(dimensions[1]);
         resetCanvas();
     }
 
-    private void clearPoint(double coordX, double coordY, double size) {
-        clearArea(coordX - (size / 2), coordY - (size / 2), size, size);
+    private void redrawSelectedShapes() {
+        clearSelectionCanvas();
+        GraphicsContext context = selectionCanvas.getGraphicsContext2D();
+        Iterator<SelectedShape> iter = selectedShapes.descendingIterator();
+        while(iter.hasNext()) {
+            SelectedShape selectedShape = iter.next();
+
+            if(drawShapeLines) {
+                drawSelectedShapeLines(selectedShape);
+            }
+
+            context.setFill(selectedShape.getColor());
+            for(double[] coord : selectedShape.getCoordinates()) {
+                context.fillOval(coord[0] - (SELECTED_POINT_SIZE / 2), coord[1] - (SELECTED_POINT_SIZE / 2),
+                        SELECTED_POINT_SIZE, SELECTED_POINT_SIZE);
+            }
+        }
     }
 
-    private void clearCanvas() {
-        clearArea(0.0, 0.0, canvas.getWidth(), canvas.getHeight());
+    private void drawSelectedShapeLines(SelectedShape selectedShape) {
+        GraphicsContext context = selectionCanvas.getGraphicsContext2D();
+        Iterator<double[]> iter = selectedShape.getCoordinates().iterator();
+
+        context.setStroke(selectedShape.getColor());
+        context.setLineWidth(1.0);
+
+        if(iter.hasNext()) {
+            double[] startingPoint = iter.next();
+            context.beginPath();
+            context.moveTo(startingPoint[0], startingPoint[1]);
+            while (iter.hasNext()) {
+                double[] nextPoint = iter.next();
+                context.lineTo(nextPoint[0], nextPoint[1]);
+            }
+            context.lineTo(startingPoint[0], startingPoint[1]);
+            context.stroke();
+        }
     }
 
-    private void clearArea(double startX, double startY, double areaWidth, double areaHeight) {
-        GraphicsContext context = canvas.getGraphicsContext2D();
+    void setDrawShapeLines(boolean val) {
+        drawShapeLines = val;
+        redrawSelectedShapes();
+    }
+
+    private void clearDotCanvas() {
+        GraphicsContext context = dotCanvas.getGraphicsContext2D();
         Paint prevColor = context.getFill();
         context.setFill(BACKGROUND_COLOR);
-        canvas.getGraphicsContext2D().fillRect(startX, startY, areaWidth, areaHeight);
+        dotCanvas.getGraphicsContext2D().fillRect(0.0, 0.0, dotCanvas.getWidth(), dotCanvas.getHeight());
         context.setFill(prevColor);
+    }
+
+    private void clearSelectionCanvas() {
+        GraphicsContext context = selectionCanvas.getGraphicsContext2D();
+        context.clearRect(0.0, 0.0, selectionCanvas.getWidth(), selectionCanvas.getHeight());
     }
 
     private void updateShapeSelectionControls() {
         if(coordinates.size() < 2) {
-            LOG.info("Disabling buttons since not enough coordinates are selected.");
-            Fractals.getControlPanel().disableAddShapeButton();
-            Fractals.getControlPanel().disableActionButton();
+            Fractals.getControlPanel().setAddShapeButtonDisabled(true);
+            Fractals.getControlPanel().setActionButtonDisabled(true);
         } else {
-            Fractals.getControlPanel().enableActionButton();
-            Fractals.getControlPanel().enableAddShapeButton();
+            Fractals.getControlPanel().setActionButtonDisabled(false);
+            Fractals.getControlPanel().setAddShapeButtonDisabled(false);
         }
     }
 
