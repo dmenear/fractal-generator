@@ -27,7 +27,7 @@ public class Fractals extends Application {
         Scene scene = new Scene(vbMain);
 
         stage.getIcons().add(new Image(getClass().getClassLoader().getResourceAsStream("icon.jpg")));
-        stage.setTitle("Fractal Generator");
+        stage.setTitle("Chaos Game Fractal Generator");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.show();

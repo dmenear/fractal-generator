@@ -15,18 +15,18 @@ class StartButtonRunnable implements Runnable {
 
     private static final Logger LOG = LoggerFactory.getLogger(StartButtonRunnable.class);
 
-    private static final double SIZE = 3.0;
+    private static final double SIZE = 2.0;
     private static final Color COLOR = Color.LIMEGREEN;
 
-    private Deque<SelectedShape> selectedShapes;
+    private SelectedShape selectedShape;
     private GraphicsContext context;
     private double[] currentLocation;
     private SimpleIntegerProperty counterVal;
 
-    public StartButtonRunnable(GraphicsContext context, Deque<SelectedShape> selectedShapes, double[] startingLocation,
+    public StartButtonRunnable(GraphicsContext context, SelectedShape selectedShape, double[] startingLocation,
                                SimpleIntegerProperty counterVal) {
         this.context = context;
-        this.selectedShapes = selectedShapes;
+        this.selectedShape = selectedShape;
         currentLocation = new double[] { startingLocation[0], startingLocation[1] };
         this.counterVal = counterVal;
     }
@@ -44,34 +44,29 @@ class StartButtonRunnable implements Runnable {
         LOG.info("Drawing points...");
         drawPoint(currentLocation, 1);
 
-        List<SelectedShape> selectedShapeList = new ArrayList<>(selectedShapes);
-        selectedShapeList.sort(Comparator.comparing(SelectedShape::getWeight));
-        TreeMap<Double, List<double[]>> weightedShapes = new TreeMap<>();
-        double weightSum = 0.0;
-        for(SelectedShape selectedShape : selectedShapeList) {
-            weightSum += selectedShape.getWeight();
-            weightedShapes.put(weightSum, new ArrayList<>(selectedShape.getCoordinates()));
-        }
-
         try {
+            List<double[]> coordinatesList = new ArrayList<>(selectedShape.getCoordinates());
+            double[] previousCoord = null;
+
             int i = 2;
             while(i <= Fractals.getControlPanel().getIterations() && !Thread.interrupted()) {
-                List<double[]> coordinatesList = null;
-
-                double roll = secRandom.nextDouble() * weightSum;
-                for(Double key : weightedShapes.keySet()) {
-                    if(roll < key) {
-                        coordinatesList = weightedShapes.get(key);
-                        break;
-                    }
-                }
-
                 Thread.sleep(Fractals.getControlPanel().getDelay());
                 double[] coord = coordinatesList.get(secRandom.nextInt(coordinatesList.size()));
+
+                switch(Fractals.getControlPanel().getVertexSelectionRule()) {
+                    case NO_RESTRICTION:
+                        break;
+                    case DIFFERENT_THAN_PREVIOUS:
+                        while(coord == previousCoord) {
+                            coord = coordinatesList.get(secRandom.nextInt(coordinatesList.size()));
+                        }
+                }
+
                 currentLocation = new double[]{
-                        (currentLocation[0] + coord[0]) / 2.0, (currentLocation[1] + coord[1]) / 2.0
+                        (currentLocation[0] + coord[0]) * 0.5, (currentLocation[1] + coord[1]) * 0.5
                 };
                 drawPoint(currentLocation, i++);
+                previousCoord = coord;
             }
         } catch(InterruptedException e) {
             LOG.warn("Interrupted!");
